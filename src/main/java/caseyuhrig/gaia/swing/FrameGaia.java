@@ -11,10 +11,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.awt.geom.Point2D;
 
 /**
@@ -35,6 +32,7 @@ public class FrameGaia extends JFrame {
     static {
         LoggingUtils.configureLogging();
     }
+
 
     private static final Logger LOG = LogManager.getLogger(FrameGaia.class);
 
@@ -60,10 +58,12 @@ public class FrameGaia extends JFrame {
     private OverlayPanel overlayPanel;
     private JProgressBar progressBar;
     private JComboBox<Class<? extends PixelRenderer>> rendererComboBox;
+    private JButton runButton;
+    private JButton stopButton;
 
     private RenderRunner renderer = null;
     private final ScreenCoordinates screenCoordinates;
-    private Point2D.Double coordinates = new Point2D.Double(0, 0);
+    private Point2D.Double galacticCoordinates = new Point2D.Double(0, 0);
 
     // TODO - Set the size based on the resolution of the monitor.  See below.
     private final int scale = 2;
@@ -73,6 +73,9 @@ public class FrameGaia extends JFrame {
 
     public FrameGaia() {
         super();
+        if (!LogManager.getRootLogger().isInfoEnabled()) {
+            System.out.println("LogManager.getRootLogger().isInfoEnabled() == false");
+        }
         setTitle("Milky Way Galaxy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         // TODO - Set the size based on the resolution of the monitor
@@ -81,8 +84,11 @@ public class FrameGaia extends JFrame {
         add(getLayers());
         UxUtils.centerFrame(this);
         setVisible(true);
-
-        final var that = this;
+        addPropertyChangeListener("galacticCoordinates", event -> {
+            //final var point = (Point2D.Double) event.getNewValue();
+            //System.out.println("l,b " + point);
+        });
+        LOG.info("FrameGaia initialized.");
 
         screenCoordinates = new LB_ScreenCoordinates(largeWidth, largeHeight);
 
@@ -94,7 +100,8 @@ public class FrameGaia extends JFrame {
 
     public RenderRunner getRenderRunner() {
         if (renderer == null) {
-            renderer = new RenderRunner(largeWidth, largeHeight, scale);
+            final Class<? extends PixelRenderer> rendererClass = (Class<? extends PixelRenderer>) getRendererComboBox().getSelectedItem();
+            renderer = new RenderRunner(rendererClass, largeWidth, largeHeight, scale);
             renderer.addRenderingListener(new RenderListener() {
                 @Override
                 public void onRenderProgress(final double progress, final Rectangle bounds) {
@@ -117,10 +124,6 @@ public class FrameGaia extends JFrame {
     public UxImage getImagePanel() {
         if (imagePanel == null) {
             imagePanel = new UxImage(getRenderRunner().getImage());
-            imagePanel.addPropertyChangeListener("coordinates", event -> {
-                final var point = (Point2D.Double) event.getNewValue();
-                coordinates = screenCoordinates.getDataCoordinates((int) point.getX(), (int) point.getY());
-            });
             imagePanel.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(final MouseEvent e) {
@@ -139,15 +142,17 @@ public class FrameGaia extends JFrame {
             imagePanel.addMouseMotionListener(new MouseAdapter() {
                 @Override
                 public void mouseMoved(final MouseEvent event) {
-                    final Point2D.Double point = screenCoordinates.getDataCoordinates(event.getX(), event.getY());
-                    //System.out.println("l,b " + point);
-                    //final var event = new PropertyChangeEvent(this, "coordinates", null, point);
-                    //fireCoordinatesChanged(event);
-                    firePropertyChange("coordinates", null, point);
+                    final Point2D.Double newGalacticCoordinates = screenCoordinates.getDataCoordinates(event.getX(), event.getY());
+                    firePropertyChange("galacticCoordinates", galacticCoordinates, newGalacticCoordinates);
+                    galacticCoordinates = newGalacticCoordinates;
                 }
             });
         }
         return imagePanel;
+    }
+
+    public Point2D.Double getGalacticCoordinates() {
+        return galacticCoordinates;
     }
 
 
@@ -214,17 +219,60 @@ public class FrameGaia extends JFrame {
     public JComboBox<Class<? extends PixelRenderer>> getRendererComboBox() {
         if (rendererComboBox == null) {
             rendererComboBox = new JComboBox<>();
-            rendererComboBox.addItem(CleanPixelRenderer.class);
             rendererComboBox.addItem(AnotherPixelRenderer.class);
             rendererComboBox.addItem(AwesomePixelRenderer.class);
-            rendererComboBox.addActionListener(e -> {
-                if (rendererComboBox.getSelectedItem() instanceof final PixelRenderer selected) {
-                    System.out.println("Selected: " + selected.getClass().getName());
-                    //getRenderRunner().setPixelRenderer(selected);
+            rendererComboBox.addItem(BrighterRenderer.class);
+            rendererComboBox.addItem(CIELabPixelRenderer.class);
+            rendererComboBox.addItem(CleanPixelRenderer.class); // current good one
+            rendererComboBox.addItem(DensityRenderer.class);
+            rendererComboBox.addItem(Lama3PixelRenderer.class);
+            rendererComboBox.addItem(MagPixelRenderer.class);
+            rendererComboBox.addItem(NewPixelRenderer.class);
+            rendererComboBox.addItem(SimpleRenderer.class);
+            rendererComboBox.addItem(TemperaturePixelRenderer.class);
+            rendererComboBox.addItem(TemperaturePixelRendererInverse.class);
+            rendererComboBox.addItem(UberPixelRenderer.class);
+            rendererComboBox.setSelectedItem(CleanPixelRenderer.class);
+            rendererComboBox.addItemListener(e -> {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    final var selected = (Class<? extends PixelRenderer>) e.getItem();
+                    LOG.info("Selected: {}", selected.getName());
+                    getRenderRunner().setRendererClass(selected);
                 }
             });
         }
         return rendererComboBox;
+    }
+
+
+    public Class<? extends PixelRenderer> getSelectedRendererClass() {
+        return (Class<? extends PixelRenderer>) getRendererComboBox().getSelectedItem();
+    }
+
+
+    public JButton getRunButton() {
+        if (runButton == null) {
+            runButton = new JButton("Run");
+            runButton.addActionListener(e -> {
+                final RenderRunner runner = getRenderRunner();
+                if (!runner.isRunning()) {
+                    final var rendererClass = (Class<? extends PixelRenderer>) getRendererComboBox().getSelectedItem();
+                    runner.setRendererClass(rendererClass);
+                    runner.start();
+                }
+            });
+        }
+        return runButton;
+    }
+
+    public JButton getStopButton() {
+        if (stopButton == null) {
+            stopButton = new JButton("Stop");
+            stopButton.addActionListener(e -> {
+                getRenderRunner().stop();
+            });
+        }
+        return stopButton;
     }
 
 
@@ -283,14 +331,14 @@ public class FrameGaia extends JFrame {
             //add(label, gbc(0, 1, 0, 0, 2, I_0_10_2_10));
             //add(sp(), gbc(2, 1, 1, 0, 2, I_2_2_2_2));
 
-            add(getPreviewPanel(), gbc(0, 2, 0, 0, 3, I_2_10_2_2));
+            add(getPreviewPanel(), gbc(0, 2, 0, 0, 4, I_2_10_2_2));
             //add(sp(), gbc(2, 2, 1, 0, 2, I_2_2_2_2));
 
             add(getRendererComboBox(), gbc(0, 3, 0, 0, 1, I_2_10_2_2));
             add(getProgressBar(), gbc(1, 3, 0, 0, 1, I_2_2_2_2));
-            final var renderButton = new JButton("Render");
-            add(renderButton, gbc(2, 3, 0.0, 0, 1, I_2_2_2_2));
-            add(sp(), gbc(3, 3, 1, 0, 1, I_2_2_2_2));
+            add(getRunButton(), gbc(2, 3, 0.0, 0, 1, I_2_2_2_2));
+            add(getStopButton(), gbc(3, 3, 0.0, 0, 1, I_2_2_2_2));
+            add(sp(), gbc(4, 3, 1, 0, 1, I_2_2_2_2));
 
             add(sp(), gbc(0, 4, 0, 1, 1, I_2_2_2_2));
             //add(sp(), gbc(1, 4, 0, 0, 1, I_2_2_2_2));

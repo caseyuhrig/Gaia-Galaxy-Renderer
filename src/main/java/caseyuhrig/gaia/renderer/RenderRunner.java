@@ -25,14 +25,21 @@ public class RenderRunner implements Runnable {
     private int imageWidth;
     private int imageHeight;
     private final int scale;
+    private Class<? extends PixelRenderer> rendererClass;
     private final ArrayList<RenderListener> listeners = new ArrayList<>();
 
 
-    public RenderRunner(final int width, final int height, final int scale) {
-        imageWidth = width;
-        imageHeight = height;
+    public RenderRunner(final Class<? extends PixelRenderer> rendererClass, final int width, final int height, final int scale) {
+        this.rendererClass = rendererClass;
+        this.imageWidth = width;
+        this.imageHeight = height;
         this.scale = scale;
         resize(imageWidth, imageHeight);
+    }
+
+
+    public void setRendererClass(final Class<? extends PixelRenderer> rendererClass) {
+        this.rendererClass = rendererClass;
     }
 
 
@@ -64,11 +71,18 @@ public class RenderRunner implements Runnable {
     }
 
 
+    public boolean isRunning() {
+        return thread != null && thread.isAlive();
+    }
+
+
     @Override
     public void run() {
         long n = 0L;
 
-        final var renderer = ObjectUtils.create(CleanPixelRenderer.class, imageWidth, imageHeight, scale);
+        LOG.info("Starting rendering using {}...", rendererClass.getName());
+
+        final var renderer = ObjectUtils.create(rendererClass, imageWidth, imageHeight, scale);
 
         //final var renderer = new CleanPixelRenderer(imageWidth, imageHeight, scale);
         //final var renderer = new UberPixelRenderer(imageWidth, imageHeight);
@@ -129,18 +143,20 @@ public class RenderRunner implements Runnable {
         done = true;
         LOG.info("Done rendering. {}", n);
         GaiaConst.messages.add("Done rendering. " + n);
-        final String namePrefix = "gaia-" + renderer.getClass().getSimpleName() + "-" + imageWidth + "x" + imageHeight + "-" + scale;
-        GraphicUtils.saveImage(image, "C:/tmp", namePrefix, ".png");
-        LOG.info("Image saved to file.");
-        GaiaConst.messages.add("Image saved to file.");
-        LOG.info("Creating Bloom Image...");
-        GaiaConst.messages.add("Creating Bloom Image...");
-        GraphicUtils.saveImage(ImageSharpening.sharpen(image), "C:/tmp", namePrefix + "-sharp", ".png");
-        GraphicUtils.saveImage(BloomEffect.applyBloom(image, 1.2), "C:/tmp", namePrefix + "-bloom-1_2", ".png");
-        GraphicUtils.saveImage(BloomEffect.applyBloom(image, 1.5), "C:/tmp", namePrefix + "-bloom-1_5", ".png");
-        GraphicUtils.saveImage(ImageSharpening.sharpen(BloomEffect.applyBloom(image, 1.5)), "C:/tmp", namePrefix + "-bloom-1_5-sharp", ".png");
-        LOG.info("Bloom Image saved to file.");
-        GaiaConst.messages.add("Bloom Image saved to file.");
+        if (1 == 2) {
+            final String namePrefix = "gaia-" + renderer.getClass().getSimpleName() + "-" + imageWidth + "x" + imageHeight + "-" + scale;
+            GraphicUtils.saveImage(image, "C:/tmp", namePrefix, ".png");
+            LOG.info("Image saved to file.");
+            GaiaConst.messages.add("Image saved to file.");
+            LOG.info("Creating Bloom Image...");
+            GaiaConst.messages.add("Creating Bloom Image...");
+            GraphicUtils.saveImage(ImageSharpening.sharpen(image), "C:/tmp", namePrefix + "-sharp", ".png");
+            GraphicUtils.saveImage(BloomEffect.applyBloom(image, 1.2), "C:/tmp", namePrefix + "-bloom-1_2", ".png");
+            GraphicUtils.saveImage(BloomEffect.applyBloom(image, 1.5), "C:/tmp", namePrefix + "-bloom-1_5", ".png");
+            GraphicUtils.saveImage(ImageSharpening.sharpen(BloomEffect.applyBloom(image, 1.5)), "C:/tmp", namePrefix + "-bloom-1_5-sharp", ".png");
+            LOG.info("Bloom Image saved to file.");
+            GaiaConst.messages.add("Bloom Image saved to file.");
+        }
     }
 
     public void start() {

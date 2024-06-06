@@ -1,6 +1,5 @@
 package caseyuhrig;
 
-import caseyuhrig.gaia.swing.FrameGaia;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.appender.ConsoleAppender;
@@ -40,8 +39,10 @@ public class LoggingUtils {
                 .add(builder.newAppenderRef("Console"))
                 .add(builder.newAppenderRef("RollingFile")));
 
-        try (final var c = Configurator.initialize(builder.build())) {
-            final Logger LOG = LogManager.getLogger(FrameGaia.class);
+        try {
+            final var c = Configurator.initialize(builder.build());
+            //Configurator.reconfigure(builder.build());
+            final Logger LOG = LogManager.getLogger(LoggingUtils.class);
             LOG.info("Logging configured");
         } catch (final Throwable throwable) {
             System.err.println("Failed to configure logging: " + throwable.getLocalizedMessage());
