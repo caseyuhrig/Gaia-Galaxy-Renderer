@@ -1,6 +1,6 @@
-# GAIA DR3 Galaxy Renderer
+# Gaia DR3 Galaxy Renderer
 
-Java Swing program that renders a portion of the Milky Way Galaxy using the data from the GAIA DR3 catalog.
+Java Swing program that renders a portion of the Milky Way Galaxy using the data from the Gaia DR3 catalog.
 
 ![Example image after render](./contrib/gaia-screenshot1.png)
 
