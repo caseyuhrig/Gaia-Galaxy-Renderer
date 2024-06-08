@@ -45,6 +45,26 @@ public class UxImagePreview extends JPanel {
 
                 SwingUtilities.invokeLater(() -> repaint());
             }
+
+            @Override
+            public void mouseDragged(final MouseEvent event) {
+                final Rectangle viewRect = scrollPane.getViewport().getViewRect();
+                final Dimension largeRect = scrollPane.getViewport().getViewSize();
+                final double scaleX = (double) getWidth() / largeRect.getWidth();
+                final double scaleY = (double) getHeight() / largeRect.getHeight();
+
+                viewportRect.x = event.getX();
+                viewportRect.y = event.getY();
+                viewportRect.width = (int) (viewRect.width * scaleX);
+                viewportRect.height = (int) (viewRect.height * scaleY);
+
+                SwingUtilities.invokeLater(() -> repaint());
+
+                final int x = (int) (event.getX() / scaleX);
+                final int y = (int) (event.getY() / scaleY);
+
+                scrollPane.getViewport().setViewPosition(new Point(x, y));
+            }
         });
         addMouseListener(new MouseAdapter() {
             @Override
@@ -73,6 +93,9 @@ public class UxImagePreview extends JPanel {
         });
     }
 
+    final float[] dash1 = {2.0f};
+    final BasicStroke DASHED_LINE_STROKE = new BasicStroke(1.0f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 2.0f, dash1, 0.0f);
+    final BasicStroke SOLID_LINE_STROKE = new BasicStroke(1.0f);
 
     @Override
     public void paintComponent(final Graphics g) {
@@ -81,7 +104,8 @@ public class UxImagePreview extends JPanel {
         graphics.drawImage(previewImage, 0, 0, this);
 
         if (showViewportRect) {
-            graphics.setColor(WHITE_50);
+            graphics.setColor(viewrectColor);
+            graphics.setStroke(DASHED_LINE_STROKE);
             graphics.draw(viewportRect);
         }
         final Dimension largeRect = scrollPane.getViewport().getViewSize();
@@ -95,6 +119,8 @@ public class UxImagePreview extends JPanel {
         final int height = (int) (viewRect.height * scaleY);
 
         graphics.setColor(viewrectColor);
+        // set solid line stroke
+        graphics.setStroke(SOLID_LINE_STROKE);
         graphics.drawRect(x, y, width, height);
     }
 

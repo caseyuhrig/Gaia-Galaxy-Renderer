@@ -5,6 +5,7 @@ import caseyuhrig.gaia.LB_ScreenCoordinates;
 import caseyuhrig.gaia.RenderListener;
 import caseyuhrig.gaia.ScreenCoordinates;
 import caseyuhrig.gaia.renderer.*;
+import caseyuhrig.lang.UncheckedException;
 import caseyuhrig.swing.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,23 +31,27 @@ import java.awt.geom.Point2D;
 public class FrameGaia extends JFrame {
 
     static {
-        LoggingUtils.configureLogging();
+        LoggingUtils.initLog4j2();
     }
-
 
     private static final Logger LOG = LogManager.getLogger(FrameGaia.class);
 
 
     public static void main(final String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                //UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
-                new FrameGaia();
-            } catch (final Throwable throwable) {
-                LOG.error(throwable.getLocalizedMessage(), throwable);
-            }
-        });
+        try {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    //UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                    UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+                    new FrameGaia();
+                } catch (final Throwable throwable) {
+                    LOG.error(throwable.getLocalizedMessage(), throwable);
+                }
+            });
+            //throw new UncheckedException("This is a test exception in main.");
+        } catch (final Throwable throwable) {
+            LOG.error(throwable.getLocalizedMessage(), throwable);
+        }
     }
 
 
@@ -73,9 +78,9 @@ public class FrameGaia extends JFrame {
 
     public FrameGaia() {
         super();
-        if (!LogManager.getRootLogger().isInfoEnabled()) {
-            System.out.println("LogManager.getRootLogger().isInfoEnabled() == false");
-        }
+
+        System.out.printf("LogManager.getRootLogger().isInfoEnabled() == %s", LogManager.getRootLogger().isInfoEnabled()).println();
+
         setTitle("Milky Way Galaxy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         // TODO - Set the size based on the resolution of the monitor
@@ -95,6 +100,8 @@ public class FrameGaia extends JFrame {
         MinimizeMaximizeJFrameHandler.injectMinimizeMaximizeHandler(this, getScrollPane());
 
         getRenderRunner().start();
+
+        throw new UncheckedException("This is a test exception.");
     }
 
 
@@ -111,11 +118,7 @@ public class FrameGaia extends JFrame {
                     previewPanel.refreshImage(renderer.getImage());
                 }
             });
-            renderer.addRenderingListener(
-                    (progress, bounds) -> {
-                        getOverlayPanel().setRenderProgress(progress);
-                    }
-            );
+            renderer.addRenderingListener((progress, bounds) -> setRenderProgress(progress));
         }
         return renderer;
     }
@@ -276,6 +279,38 @@ public class FrameGaia extends JFrame {
     }
 
 
+    public UxImagePreview getPreviewPanel() {
+        if (previewPanel == null) {
+            // TODO - Get these values from the size of the scroll pane viewport and large image size
+            // width should be proportional to the width of the scroll pane viewport
+            // height should be proportional to the height of the large image and width from above
+            final int previewWidth = 640;
+            final int previewHeight = 360;
+            previewPanel = new UxImagePreview(getScrollPane());
+            UxUtils.setSizes(previewPanel, previewWidth, previewHeight);
+        }
+        return previewPanel;
+    }
+
+
+    public JProgressBar getProgressBar() {
+        if (progressBar == null) {
+            progressBar = new UxProgressBar(0, 100);
+            progressBar.setStringPainted(true);
+            progressBar.setValue(0);
+            progressBar.setString("0%");
+        }
+        return progressBar;
+    }
+
+
+    public void setRenderProgress(final double renderProgress) {
+        final JProgressBar progressBar = getProgressBar();
+        progressBar.setValue((int) (renderProgress * 100));
+        progressBar.setString(String.format("%.2f%%", renderProgress * 100.0));
+    }
+
+
     public class OverlayPanel extends JPanel {
 
 
@@ -347,38 +382,6 @@ public class FrameGaia extends JFrame {
 
 
             //UxUtils.injectMouseInactivityHandler(this);
-        }
-
-
-        public UxImagePreview getPreviewPanel() {
-            if (previewPanel == null) {
-                // TODO - Get these values from the size of the scroll pane viewport and large image size
-                // width should be proportional to the width of the scroll pane viewport
-                // height should be proportional to the height of the large image and width from above
-                final int previewWidth = 640;
-                final int previewHeight = 360;
-                previewPanel = new UxImagePreview(getScrollPane());
-                UxUtils.setSizes(previewPanel, previewWidth, previewHeight);
-            }
-            return previewPanel;
-        }
-
-
-        public JProgressBar getProgressBar() {
-            if (progressBar == null) {
-                progressBar = new UxProgressBar(0, 100);
-                progressBar.setStringPainted(true);
-                progressBar.setValue(0);
-                progressBar.setString("0%");
-            }
-            return progressBar;
-        }
-
-
-        public void setRenderProgress(final double renderProgress) {
-            final JProgressBar progressBar = getProgressBar();
-            progressBar.setValue((int) (renderProgress * 100));
-            progressBar.setString(String.format("%.2f%%", renderProgress * 100.0));
         }
 
 
